@@ -1,0 +1,70 @@
+package {{ package_base }}.mapper;
+
+import {{ package_base }}.domain.{{ entity_name }};
+import {{ package_base }}.request.{{ entity_name }}Request;
+import {{ package_base }}.dto.{{ entity_name }}Response;
+{% for rel in relationships %}
+import {{ package_base }}.domain.{{ rel.target }};
+{% endfor %}
+import org.mapstruct.*;
+import java.util.List;
+
+@Mapper(componentModel = "spring")
+public interface {{ entity_name }}Mapper {
+
+    // Conversões Entity <-> Request
+    @Mapping(target = "id", ignore = true)
+    {% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+    @Mapping(target = "{{ rel.name }}", ignore = true)
+    {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+    @Mapping(target = "{{ rel.name }}", ignore = true)
+    {% endif %}
+    {% endfor %}
+    {{ entity_name }} toEntity({{ entity_name }}Request request);
+
+    @Mapping(target = "id", ignore = true)
+    {% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+    @Mapping(target = "{{ rel.name }}", ignore = true)
+    {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+    @Mapping(target = "{{ rel.name }}", ignore = true)
+    {% endif %}
+    {% endfor %}
+    void updateEntityFromRequest({{ entity_name }}Request request, @MappingTarget {{ entity_name }} entity);
+
+    // Conversões Entity <-> Response
+    {% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+    @Mapping(target = "{{ rel.name }}", source = "{{ rel.name }}", qualifiedByName = "{{ rel.target | lower }}To{{ rel.target }}Summary")
+    {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+    @Mapping(target = "{{ rel.name }}", source = "{{ rel.name }}", qualifiedByName = "{{ rel.target | lower }}ListTo{{ rel.target }}SummaryList")
+    {% endif %}
+    {% endfor %}
+    {{ entity_name }}Response toResponse({{ entity_name }} entity);
+
+    List<{{ entity_name }}Response> toResponseList(List<{{ entity_name }}> entities);
+
+    // Mapeamentos customizados para relacionamentos
+    {% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+    @Named("{{ rel.target | lower }}To{{ rel.target }}Summary")
+    default {{ rel.target }}SummaryResponse {{ rel.target | lower }}To{{ rel.target }}Summary({{ rel.target }} {{ rel.target | lower }}) {
+        if ({{ rel.target | lower }} == null) {
+            return null;
+        }
+        return new {{ rel.target }}SummaryResponse({{ rel.target | lower }}.getId(), {{ rel.target | lower }}.getNome());
+    }
+    {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+    @Named("{{ rel.target | lower }}ListTo{{ rel.target }}SummaryList")
+    default List<{{ rel.target }}SummaryResponse> {{ rel.target | lower }}ListTo{{ rel.target }}SummaryList(List<{{ rel.target }}> {{ rel.target | lower }}List) {
+        if ({{ rel.target | lower }}List == null) {
+            return List.of();
+        }
+        return {{ rel.target | lower }}List.stream()
+                .map({{ rel.target | lower }} -> new {{ rel.target }}SummaryResponse({{ rel.target | lower }}.getId(), {{ rel.target | lower }}.getNome()))
+                .toList();
+    }
+    {% endif %}
+    {% endfor %}
+}

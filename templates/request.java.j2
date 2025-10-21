@@ -1,0 +1,41 @@
+package {{ package_base }}.request;
+
+import jakarta.validation.constraints.*;
+import java.util.List;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
+public record {{ entity_name }}Request(
+{% for field in fields %}
+    {% if field.type == "String" %}
+    @NotBlank
+    @Size(max={{ field.length if field.length else 255 }})
+    String {{ field.name }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Integer","Long","Double","Float","BigDecimal"] %}
+    {% if field.positive %}
+    @Positive
+    {% endif %}
+    {% if field.type == "BigDecimal" %}
+    @DecimalMin(value = "0.0", inclusive = false)
+    @Digits(integer=19, fraction=2)
+    {% endif %}
+    {{ field.type }} {{ field.name }}{% if not loop.last or relationships %},{% endif %}
+    {% else %}
+    {{ field.type }} {{ field.name }}{% if not loop.last or relationships %},{% endif %}
+    {% endif %}
+{% endfor %}
+{% for rel in relationships %}
+    {% if rel.type in ["ManyToOne","OneToOne"] %}
+    {% if rel.not_null %}
+    @NotNull
+    {% endif %}
+    UUID {{ rel.name }}Id{% if not loop.last %},{% endif %}
+    {% elif rel.type in ["OneToMany","ManyToMany"] %}
+    {% if rel.not_null %}
+    @NotNull
+    {% endif %}
+    List<UUID> {{ rel.name }}Ids{% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+) {}

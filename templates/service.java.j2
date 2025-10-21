@@ -1,0 +1,100 @@
+package {{ package_base }}.service;
+
+import {{ package_base }}.domain.{{ entity_name }};
+import {{ package_base }}.repository.{{ entity_name }}Repository;
+import {{ package_base }}.request.{{ entity_name }}Request;
+import {{ package_base }}.dto.{{ entity_name }}Response;
+import {{ package_base }}.mapper.{{ entity_name }}Mapper;
+{% for rel in relationships %}
+import {{ package_base }}.domain.{{ rel.target }};
+import {{ package_base }}.repository.{{ rel.target }}Repository;
+{% endfor %}
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class {{ entity_name }}Service {
+
+    private final {{ entity_name }}Repository repository;
+    private final {{ entity_name }}Mapper mapper;
+{% for rel in relationships %}
+    private final {{ rel.target }}Repository {{ rel.target | lower }}Repository;
+{% endfor %}
+
+    public List<{{ entity_name }}> findAll() {
+        return repository.findAll();
+    }
+
+    public List<{{ entity_name }}Response> findAllResponses() {
+        return mapper.toResponseList(repository.findAll());
+    }
+
+    public {{ entity_name }} findById(Long id) {
+        return repository.findById(id).orElseThrow(() -> 
+            new RuntimeException("{{ entity_name }} com ID '" + id + "' não foi encontrado"));
+    }
+
+    public {{ entity_name }}Response findResponseById(Long id) {
+        {{ entity_name }} entity = findById(id);
+        return mapper.toResponse(entity);
+    }
+
+    @Transactional
+    public {{ entity_name }} save({{ entity_name }} entity) {
+        return repository.save(entity);
+    }
+
+    @Transactional
+    public {{ entity_name }}Response saveFromRequest({{ entity_name }}Request request) {
+        {{ entity_name }} entity = mapper.toEntity(request);
+        processRelationships(entity, request);
+        {{ entity_name }} savedEntity = repository.save(entity);
+        return mapper.toResponse(savedEntity);
+    }
+
+    @Transactional
+    public {{ entity_name }}Response updateFromRequest(Long id, {{ entity_name }}Request request) {
+        {{ entity_name }} existingEntity = findById(id);
+        mapper.updateEntityFromRequest(request, existingEntity);
+        processRelationships(existingEntity, request);
+        {{ entity_name }} updatedEntity = repository.save(existingEntity);
+        return mapper.toResponse(updatedEntity);
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        {{ entity_name }} entity = findById(id);
+        repository.delete(entity);
+    }
+
+    // Método auxiliar para processar relacionamentos
+    private void processRelationships({{ entity_name }} entity, {{ entity_name }}Request request) {
+{% for rel in relationships %}
+        {% if rel.type in ["ManyToOne", "OneToOne"] %}
+        // Processar relacionamento {{ rel.type }}: {{ rel.name }}
+        if (request.{{ rel.name }}Id() != null) {
+            {{ rel.target }} {{ rel.name }} = {{ rel.target | lower }}Repository.findById(request.{{ rel.name }}Id())
+                    .orElseThrow(() -> new RuntimeException("{{ rel.target }} com ID '" + request.{{ rel.name }}Id() + "' não foi encontrado"));
+            entity.set{{ rel.name | title }}({{ rel.name }});
+        }
+        {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+        // Processar relacionamento {{ rel.type }}: {{ rel.name }}
+        if (request.{{ rel.name }}Ids() != null && !request.{{ rel.name }}Ids().isEmpty()) {
+            List<{{ rel.target }}> {{ rel.name }} = {{ rel.target | lower }}Repository.findAllById(request.{{ rel.name }}Ids());
+            if ({{ rel.name }}.size() != request.{{ rel.name }}Ids().size()) {
+                throw new RuntimeException("Alguns registros de {{ rel.target }} não foram encontrados");
+            }
+            {% if rel.type == "OneToMany" %}
+            entity.set{{ rel.name | title }}({{ rel.name }});
+            {% else %}
+            entity.set{{ rel.name | title }}(new java.util.HashSet<>({{ rel.name }}));
+            {% endif %}
+        }
+        {% endif %}
+{% endfor %}
+    }
+}

@@ -1,0 +1,34 @@
+package {{ package_base }}.dto;
+
+import {{ package_base }}.domain.{{ entity_name }};
+import java.util.List;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
+{% if relationships %}
+// DTOs for relationships
+{% for rel in relationships %}
+{% if rel.type in ["ManyToOne", "OneToOne"] %}
+record {{ rel.target }}SummaryResponse(Long id, String nome) {}
+{% elif rel.type in ["OneToMany", "ManyToMany"] %}
+record {{ rel.target }}SummaryResponse(Long id, String nome) {}
+{% endif %}
+{% endfor %}
+
+{% endif %}
+public record {{ entity_name }}Response(
+    Long id{% if fields|length > 0 or relationships|length > 0 %},{% endif %}
+{% for field in fields -%}
+    {{ field.type }} {{ field.name }}{% if not loop.last or relationships|length > 0 %},{% endif %}
+{% endfor %}
+{% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+    {{ rel.target }}SummaryResponse {{ rel.name }}{% if not loop.last %},{% endif %}
+    {% elif rel.type in ["OneToMany", "ManyToMany"] %}
+    List<{{ rel.target }}SummaryResponse> {{ rel.name }}{% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+) {
+    // MapStruct handled conversions - factory methods removed
+}

@@ -1,0 +1,238 @@
+package {{ package_base }}.controller;
+
+import {{ package_base }}.service.{{ entity_name }}Service;
+import {{ package_base }}.request.{{ entity_name }}Request;
+import {{ package_base }}.dto.{{ entity_name }}Response;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import java.util.Collections;
+import java.util.List;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest({{ entity_name }}Controller.class)
+@DisplayName("Testes do Controller de {{ entity_name }}")
+class {{ entity_name }}ControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private {{ entity_name }}Service service;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private {{ entity_name }}Request request;
+    private {{ entity_name }}Response response;
+    private Long entityId;
+
+    @BeforeEach
+    void setUp() {
+        entityId = 1L;
+        
+        request = new {{ entity_name }}Request(
+{% for field in fields %}
+    {% if field.type == "String" %}
+                "Test {{ field.name | title }}"{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Integer", "Long"] %}
+                1{{ "L" if field.type == "Long" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Double", "Float"] %}
+                10.0{{ "f" if field.type == "Float" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "BigDecimal" %}
+                new BigDecimal("10.50"){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "Boolean" %}
+                true{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDate" %}
+                LocalDate.now(){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDateTime" %}
+                LocalDateTime.now(){% if not loop.last or relationships %},{% endif %}
+    {% else %}
+                null{% if not loop.last or relationships %},{% endif %}
+    {% endif %}
+{% endfor %}
+{% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+                null{% if not loop.last %},{% endif %}
+    {% else %}
+                Collections.emptyList(){% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+        );
+
+        response = new {{ entity_name }}Response(
+                entityId{% if fields|length > 0 %},{% endif %}
+{% for field in fields %}
+    {% if field.type == "String" %}
+                "Test {{ field.name | title }}"{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Integer", "Long"] %}
+                1{{ "L" if field.type == "Long" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Double", "Float"] %}
+                10.0{{ "f" if field.type == "Float" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "BigDecimal" %}
+                new BigDecimal("10.50"){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "Boolean" %}
+                true{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDate" %}
+                LocalDate.now(){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDateTime" %}
+                LocalDateTime.now(){% if not loop.last or relationships %},{% endif %}
+    {% else %}
+                null{% if not loop.last or relationships %},{% endif %}
+    {% endif %}
+{% endfor %}
+{% for rel in relationships %}
+                Collections.emptyList(){% if not loop.last %},{% endif %}
+{% endfor %}
+        );
+    }
+
+    @Test
+    @DisplayName("Deve criar {{ entity_name | lower }} com sucesso")
+    void testCreate() throws Exception {
+        // Dado
+        when(service.saveFromRequest(any({{ entity_name }}Request.class))).thenReturn(response);
+
+        // Quando & Então
+        mockMvc.perform(post("/api/{{ entity_name | lower }}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(entityId.toString()));
+
+        verify(service, times(1)).saveFromRequest(any({{ entity_name }}Request.class));
+    }
+
+    @Test
+    @DisplayName("Deve retornar erro de validação para request inválido")
+    void testCreateWithInvalidRequest() throws Exception {
+        // Dado
+        {{ entity_name }}Request invalidRequest = new {{ entity_name }}Request(
+{% for field in fields %}
+    {% if field.type == "String" %}
+                ""{% if not loop.last or relationships %},{% endif %}  // Invalid empty string
+    {% elif field.type in ["Integer", "Long"] %}
+                {% if field.positive %}-1{{ "L" if field.type == "Long" else "" }}{% else %}null{% endif %}{% if not loop.last or relationships %},{% endif %}  // Invalid negative/null
+    {% elif field.type in ["Double", "Float"] %}
+                {% if field.positive %}-1.0{{ "f" if field.type == "Float" else "" }}{% else %}null{% endif %}{% if not loop.last or relationships %},{% endif %}  // Invalid negative/null
+    {% elif field.type == "BigDecimal" %}
+                {% if field.positive %}new BigDecimal("-1.00"){% else %}null{% endif %}{% if not loop.last or relationships %},{% endif %}  // Invalid negative/null
+    {% else %}
+                null{% if not loop.last or relationships %},{% endif %}
+    {% endif %}
+{% endfor %}
+{% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+                null{% if not loop.last %},{% endif %}
+    {% else %}
+                Collections.emptyList(){% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+        );
+
+        // Quando & Então
+        mockMvc.perform(post("/api/{{ entity_name | lower }}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(invalidRequest)))
+                .andExpect(status().isBadRequest());
+
+        verify(service, never()).saveFromRequest(any());
+    }
+
+    @Test
+    @DisplayName("Deve encontrar {{ entity_name | lower }} por ID com sucesso")
+    void testFindById() throws Exception {
+        // Dado
+        when(service.findResponseById(entityId)).thenReturn(response);
+
+        // Quando & Então
+        mockMvc.perform(get("/api/{{ entity_name | lower }}/{id}", entityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(entityId.toString()));
+
+        verify(service, times(1)).findResponseById(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve retornar 404 quando {{ entity_name | lower }} não for encontrado")
+    void testFindByIdNotFound() throws Exception {
+        // Dado
+        when(service.findResponseById(entityId)).thenThrow(new RuntimeException("{{ entity_name }} não encontrado"));
+
+        // Quando & Então
+        mockMvc.perform(get("/api/{{ entity_name | lower }}/{id}", entityId))
+                .andExpect(status().isInternalServerError());
+
+        verify(service, times(1)).findResponseById(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve listar todos os {{ entity_name | lower }}s com sucesso")
+    void testFindAll() throws Exception {
+        // Dado
+        List<{{ entity_name }}Response> responses = List.of(response);
+        when(service.findAllResponses()).thenReturn(responses);
+
+        // Quando & Então
+        mockMvc.perform(get("/api/{{ entity_name | lower }}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].id").value(entityId.toString()));
+
+        verify(service, times(1)).findAllResponses();
+    }
+
+    @Test
+    @DisplayName("Deve atualizar {{ entity_name | lower }} com sucesso")
+    void testUpdate() throws Exception {
+        // Dado
+        when(service.updateFromRequest(eq(entityId), any({{ entity_name }}Request.class))).thenReturn(response);
+
+        // Quando & Então
+        mockMvc.perform(put("/api/{{ entity_name | lower }}/{id}", entityId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(entityId.toString()));
+
+        verify(service, times(1)).updateFromRequest(eq(entityId), any({{ entity_name }}Request.class));
+    }
+
+    @Test
+    @DisplayName("Deve deletar {{ entity_name | lower }} com sucesso")
+    void testDelete() throws Exception {
+        // Dado
+        doNothing().when(service).delete(entityId);
+
+        // Quando & Então
+        mockMvc.perform(delete("/api/{{ entity_name | lower }}/{id}", entityId))
+                .andExpect(status().isNoContent());
+
+        verify(service, times(1)).delete(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve retornar 500 ao tentar deletar {{ entity_name | lower }} inexistente")
+    void testDeleteNotFound() throws Exception {
+        // Dado
+        doThrow(new RuntimeException("{{ entity_name }} não encontrado")).when(service).delete(entityId);
+
+        // Quando & Então
+        mockMvc.perform(delete("/api/{{ entity_name | lower }}/{id}", entityId))
+                .andExpect(status().isInternalServerError());
+
+        verify(service, times(1)).delete(entityId);
+    }
+}

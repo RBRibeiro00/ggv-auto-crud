@@ -1,0 +1,105 @@
+package {{ package_base }}.domain;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
+@Entity
+@Table(name="{{ table_name | upper }}")
+@Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
+@ToString(exclude = { {% for rel in relationships %}{% if rel.type in ["OneToMany", "ManyToMany"] %}"{{ rel.name }}"{% if not loop.last %}, {% endif %}{% endif %}{% endfor %} })
+public class {{ entity_name }} {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "ID")
+    private Long id;
+
+{% for field in fields %}
+    @Column(name="{{ field.name | upper }}"{% if field.length %}, length={{ field.length }}{% endif %}{% if field.not_null %}, nullable=false{% endif %}{% if field.type == "BigDecimal" %}, precision=19, scale=2{% endif %})
+    private {{ field.type }} {{ field.name }};
+{% endfor %}
+
+{% for rel in relationships %}
+{% if rel.type == "OneToMany" %}
+    @OneToMany(mappedBy="{{ rel.mapped_by | default(entity_name | lower) }}", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @Builder.Default
+    private List<{{ rel.target }}> {{ rel.name }} = new ArrayList<>();
+{% elif rel.type == "ManyToOne" %}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="{{ rel.name | upper }}_ID", referencedColumnName = "ID"{% if rel.not_null %}, nullable=false{% endif %})
+    @JsonBackReference
+    private {{ rel.target }} {{ rel.name }};
+{% elif rel.type == "OneToOne" %}
+    @OneToOne({% if rel.cascade %}cascade = CascadeType.ALL, {% endif %}fetch = FetchType.LAZY)
+    @JoinColumn(name="{{ rel.name | upper }}_ID", referencedColumnName = "ID"{% if rel.not_null %}, nullable=false{% endif %})
+    {% if rel.owner %}@JsonManagedReference{% else %}@JsonBackReference{% endif %}
+    private {{ rel.target }} {{ rel.name }};
+{% elif rel.type == "ManyToMany" %}
+    @ManyToMany({% if rel.cascade %}cascade = {CascadeType.PERSIST, CascadeType.MERGE}, {% endif %}fetch = FetchType.LAZY)
+    @JoinTable(name="{{ table_name | upper }}_{{ rel.name | upper }}",
+        joinColumns = @JoinColumn(name="{{ entity_name | upper }}_ID"),
+        inverseJoinColumns = @JoinColumn(name="{{ rel.target | upper }}_ID"))
+    @JsonIgnore
+    @Builder.Default
+    private Set<{{ rel.target }}> {{ rel.name }} = new HashSet<>();
+{% endif %}
+{% endfor %}
+
+    @Column(name = "CRIADO_EM", updatable = false)
+    private LocalDateTime criadoEm;
+
+    @Column(name = "ATUALIZADO_EM")
+    private LocalDateTime atualizadoEm;
+
+    @PrePersist
+    public void prePersist() {
+        this.criadoEm = LocalDateTime.now();
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    // Métodos auxiliares para relacionamentos
+{% for rel in relationships %}
+{% if rel.type == "OneToMany" %}
+    public void add{{ rel.target }}({{ rel.target }} {{ rel.target | lower }}) {
+        this.{{ rel.name }}.add({{ rel.target | lower }});
+        {{ rel.target | lower }}.set{{ entity_name }}(this);
+    }
+
+    public void remove{{ rel.target }}({{ rel.target }} {{ rel.target | lower }}) {
+        this.{{ rel.name }}.remove({{ rel.target | lower }});
+        {{ rel.target | lower }}.set{{ entity_name }}(null);
+    }
+{% elif rel.type == "ManyToMany" %}
+    public void add{{ rel.target }}({{ rel.target }} {{ rel.target | lower }}) {
+        this.{{ rel.name }}.add({{ rel.target | lower }});
+        {{ rel.target | lower }}.get{{ rel.inverse_field | default(entity_name + 's') }}().add(this);
+    }
+
+    public void remove{{ rel.target }}({{ rel.target }} {{ rel.target | lower }}) {
+        this.{{ rel.name }}.remove({{ rel.target | lower }});
+        {{ rel.target | lower }}.get{{ rel.inverse_field | default(entity_name + 's') }}().remove(this);
+    }
+{% endif %}
+{% endfor %}
+}

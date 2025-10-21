@@ -1,0 +1,277 @@
+package {{ package_base }}.service;
+
+import {{ package_base }}.domain.{{ entity_name }};
+import {{ package_base }}.repository.{{ entity_name }}Repository;
+import {{ package_base }}.request.{{ entity_name }}Request;
+import {{ package_base }}.dto.{{ entity_name }}Response;
+{% for rel in relationships %}
+import {{ package_base }}.domain.{{ rel.target }};
+import {{ package_base }}.repository.{{ rel.target }}Repository;
+{% endfor %}
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("Testes do Service de {{ entity_name }}")
+class {{ entity_name }}ServiceTest {
+
+    @Mock
+    private {{ entity_name }}Repository repository;
+{% for rel in relationships %}
+    @Mock
+    private {{ rel.target }}Repository {{ rel.target | lower }}Repository;
+{% endfor %}
+
+    @InjectMocks
+    private {{ entity_name }}Service service;
+
+    private {{ entity_name }} {{ entity_name | lower }};
+    private {{ entity_name }}Request request;
+    private Long entityId;
+
+    @BeforeEach
+    void setUp() {
+        entityId = 1L;
+        
+        {{ entity_name | lower }} = {{ entity_name }}.builder()
+                .id(entityId)
+{% for field in fields %}
+    {% if field.type == "String" %}
+                .{{ field.name }}("Test {{ field.name | title }}")
+    {% elif field.type in ["Integer", "Long"] %}
+                .{{ field.name }}(1{{ "L" if field.type == "Long" else "" }})
+    {% elif field.type in ["Double", "Float"] %}
+                .{{ field.name }}(10.0{{ "f" if field.type == "Float" else "" }})
+    {% elif field.type == "BigDecimal" %}
+                .{{ field.name }}(new BigDecimal("10.50"))
+    {% elif field.type == "Boolean" %}
+                .{{ field.name }}(true)
+    {% elif field.type == "LocalDate" %}
+                .{{ field.name }}(LocalDate.now())
+    {% elif field.type == "LocalDateTime" %}
+                .{{ field.name }}(LocalDateTime.now())
+    {% else %}
+                .{{ field.name }}(null)
+    {% endif %}
+{% endfor %}
+                .build();
+
+        request = new {{ entity_name }}Request(
+{% for field in fields %}
+    {% if field.type == "String" %}
+                "Test {{ field.name | title }}"{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Integer", "Long"] %}
+                1{{ "L" if field.type == "Long" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type in ["Double", "Float"] %}
+                10.0{{ "f" if field.type == "Float" else "" }}{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "BigDecimal" %}
+                new BigDecimal("10.50"){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "Boolean" %}
+                true{% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDate" %}
+                LocalDate.now(){% if not loop.last or relationships %},{% endif %}
+    {% elif field.type == "LocalDateTime" %}
+                LocalDateTime.now(){% if not loop.last or relationships %},{% endif %}
+    {% else %}
+                null{% if not loop.last or relationships %},{% endif %}
+    {% endif %}
+{% endfor %}
+{% for rel in relationships %}
+    {% if rel.type in ["ManyToOne", "OneToOne"] %}
+                null{% if not loop.last %},{% endif %}
+    {% else %}
+                Collections.emptyList(){% if not loop.last %},{% endif %}
+    {% endif %}
+{% endfor %}
+        );
+    }
+
+    @Test
+    @DisplayName("Deve encontrar todas as entidades com sucesso")
+    void testFindAll() {
+        // Dado
+        List<{{ entity_name }}> entities = List.of({{ entity_name | lower }});
+        when(repository.findAll()).thenReturn(entities);
+
+        // Quando
+        List<{{ entity_name }}> result = service.findAll();
+
+        // Então
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals({{ entity_name | lower }}.getId(), result.get(0).getId());
+        verify(repository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("Deve encontrar todas as respostas com sucesso")
+    void testFindAllResponses() {
+        // Dado
+        List<{{ entity_name }}> entities = List.of({{ entity_name | lower }});
+        when(repository.findAll()).thenReturn(entities);
+
+        // Quando
+        List<{{ entity_name }}Response> result = service.findAllResponses();
+
+        // Então
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals({{ entity_name | lower }}.getId(), result.get(0).id());
+        verify(repository, times(1)).findAll();
+    }
+
+    @Test
+    @DisplayName("Deve encontrar entidade por ID com sucesso")
+    void testFindById() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.of({{ entity_name | lower }}));
+
+        // Quando
+        {{ entity_name }} result = service.findById(entityId);
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.getId());
+        verify(repository, times(1)).findById(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve lançar exceção quando entidade não for encontrada por ID")
+    void testFindByIdNotFound() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.empty());
+
+        // Quando & Então
+        RuntimeException exception = assertThrows(RuntimeException.class, 
+            () -> service.findById(entityId));
+        
+        assertTrue(exception.getMessage().contains("{{ entity_name }}"));
+        assertTrue(exception.getMessage().contains("não foi encontrado"));
+        verify(repository, times(1)).findById(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve encontrar resposta por ID com sucesso")
+    void testFindResponseById() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.of({{ entity_name | lower }}));
+
+        // Quando
+        {{ entity_name }}Response result = service.findResponseById(entityId);
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.id());
+        verify(repository, times(1)).findById(entityId);
+    }
+
+    @Test
+    @DisplayName("Deve salvar entidade com sucesso")
+    void testSave() {
+        // Dado
+        when(repository.save(any({{ entity_name }}.class))).thenReturn({{ entity_name | lower }});
+
+        // Quando
+        {{ entity_name }} result = service.save({{ entity_name | lower }});
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.getId());
+        verify(repository, times(1)).save({{ entity_name | lower }});
+    }
+
+    @Test
+    @DisplayName("Deve salvar a partir do request com sucesso")
+    void testSaveFromRequest() {
+        // Dado
+        when(repository.save(any({{ entity_name }}.class))).thenReturn({{ entity_name | lower }});
+
+        // Quando
+        {{ entity_name }}Response result = service.saveFromRequest(request);
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.id());
+        verify(repository, times(1)).save(any({{ entity_name }}.class));
+    }
+
+    @Test
+    @DisplayName("Deve atualizar entidade com sucesso")
+    void testUpdate() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.of({{ entity_name | lower }}));
+        when(repository.save(any({{ entity_name }}.class))).thenReturn({{ entity_name | lower }});
+
+        // Quando
+        {{ entity_name }} result = service.update(entityId, {{ entity_name | lower }});
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.getId());
+        verify(repository, times(1)).findById(entityId);
+        verify(repository, times(1)).save({{ entity_name | lower }});
+    }
+
+    @Test
+    @DisplayName("Deve atualizar a partir do request com sucesso")
+    void testUpdateFromRequest() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.of({{ entity_name | lower }}));
+        when(repository.save(any({{ entity_name }}.class))).thenReturn({{ entity_name | lower }});
+
+        // Quando
+        {{ entity_name }}Response result = service.updateFromRequest(entityId, request);
+
+        // Então
+        assertNotNull(result);
+        assertEquals(entityId, result.id());
+        verify(repository, times(1)).findById(entityId);
+        verify(repository, times(1)).save(any({{ entity_name }}.class));
+    }
+
+    @Test
+    @DisplayName("Deve excluir entidade com sucesso")
+    void testDelete() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.of({{ entity_name | lower }}));
+        doNothing().when(repository).delete({{ entity_name | lower }});
+
+        // Quando
+        service.delete(entityId);
+
+        // Então
+        verify(repository, times(1)).findById(entityId);
+        verify(repository, times(1)).delete({{ entity_name | lower }});
+    }
+
+    @Test
+    @DisplayName("Deve lançar exceção ao tentar excluir entidade inexistente")
+    void testDeleteNotFound() {
+        // Dado
+        when(repository.findById(entityId)).thenReturn(Optional.empty());
+
+        // Quando & Então
+        RuntimeException exception = assertThrows(RuntimeException.class, 
+            () -> service.delete(entityId));
+        
+        assertTrue(exception.getMessage().contains("{{ entity_name }}"));
+        assertTrue(exception.getMessage().contains("não foi encontrado"));
+        verify(repository, times(1)).findById(entityId);
+        verify(repository, never()).delete(any());
+    }
+}

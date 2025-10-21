@@ -1,0 +1,54 @@
+package {{ package_base }}.controller;
+
+import {{ package_base }}.service.{{ entity_name }}Service;
+import {{ package_base }}.request.{{ entity_name }}Request;
+import {{ package_base }}.dto.{{ entity_name }}Response;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/{{ entity_name | lower }}")
+@RequiredArgsConstructor
+@Validated
+@Tag(name="{{ entity_name }}", description="Operações CRUD de {{ entity_name }}")
+public class {{ entity_name }}Controller {
+
+    private final {{ entity_name }}Service service;
+
+    @PostMapping
+    @Operation(summary="Criar um novo {{ entity_name }}")
+    public ResponseEntity<{{ entity_name }}Response> create(@RequestBody @Valid {{ entity_name }}Request request) {
+        return ResponseEntity.status(201).body(service.saveFromRequest(request));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary="Buscar {{ entity_name }} por ID")
+    public ResponseEntity<{{ entity_name }}Response> findById(@PathVariable Long id) {
+        return ResponseEntity.ok(service.findResponseById(id));
+    }
+
+    @GetMapping
+    @Operation(summary="Listar todos os {{ entity_name }}")
+    public ResponseEntity<List<{{ entity_name }}Response>> findAll() {
+        return ResponseEntity.ok(service.findAllResponses());
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary="Atualizar {{ entity_name }} existente")
+    public ResponseEntity<{{ entity_name }}Response> update(@PathVariable Long id, @RequestBody @Valid {{ entity_name }}Request request) {
+        return ResponseEntity.ok(service.updateFromRequest(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary="Deletar {{ entity_name }}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
