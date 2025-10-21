@@ -2,21 +2,24 @@
 
 ## 🚀 Descrição
 
-O **GGV-AUTO-CRUD** é um gerador automático de código CRUD (Create, Read, Update, Delete) para aplicações Java Spring Boot com JPA/Hibernate. Este projeto utiliza templates Jinja2 para gerar automaticamente todas as camadas de uma aplicação (Entity, Repository, Service, Controller, DTOs e testes) com suporte completo a relacionamentos entre entidades.
+O **GGV-AUTO-CRUD** é um gerador automático de código CRUD (Create, Read, Update, Delete) para aplicações Java Spring Boot com JPA/Hibernate. Este projeto utiliza templates Jinja2 para gerar automaticamente todas as camadas de uma aplicação (Entity, Repository, Service, Controller, DTOs, Mappers e testes) com suporte completo a relacionamentos entre entidades.
 
 ## ✨ Funcionalidades
 
-- ✅ **Geração automática de entidades JPA** com anotações otimizadas
+- ✅ **Geração automática de entidades JPA** com IDs Long autoincrementais
 - ✅ **Suporte completo a relacionamentos** (OneToMany, ManyToOne, OneToOne, ManyToMany)
-- ✅ **DTOs de Request e Response** com validações
-- ✅ **Services** com métodos de conversão automática
+- ✅ **Integração MapStruct** para mapeamento profissional entre DTOs e entidades
+- ✅ **DTOs de Request e Response** com validações Bean Validation
+- ✅ **Services** com mapeamento automático MapStruct
 - ✅ **Controllers REST** com documentação Swagger/OpenAPI
-- ✅ **Testes unitários** para Service e Controller
-- ✅ **Configurações avançadas** de cascade, fetch type e outros
-- ✅ **Validação de entrada** com feedback detalhado
+- ✅ **Testes unitários completos** (54 testes) para todas as camadas
+- ✅ **Configurações avançadas** de cascade, not_null e relacionamentos
+- ✅ **Validação de entrada** com formato colon-separated
 - ✅ **Suporte a BigDecimal** com precisão e validações específicas
 - ✅ **Nomes de tabela personalizados** e colunas em maiúsculo
-- ✅ **Exception handling** com classes de exceção específicas
+- ✅ **Localização completa em português** (mensagens de erro, comentários, strings)
+- ✅ **Suporte a UUID** para referências de relacionamentos
+- ✅ **Suite de testes abrangente** com cobertura completa
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -25,9 +28,11 @@ O **GGV-AUTO-CRUD** é um gerador automático de código CRUD (Create, Read, Upd
 - **Java 17+** (código gerado)
 - **Spring Boot 3.x** (código gerado)
 - **Jakarta Persistence (JPA)**
+- **MapStruct** para mapeamento de objetos
 - **Lombok**
 - **Bean Validation**
 - **Swagger/OpenAPI**
+- **JUnit 5** e **Mockito** (testes gerados)
 
 ## 📦 Instalação
 
@@ -52,7 +57,7 @@ python main.py
 
 ### Configuração de Campos
 
-O sistema suporta os seguintes tipos de campos:
+O sistema suporta os seguintes tipos de campos usando formato colon-separated:
 
 ```
 nome:String:100              # String com tamanho máximo
@@ -63,78 +68,110 @@ ativo:Boolean               # Boolean simples
 nascimento:LocalDate        # Data
 criacao:LocalDateTime       # Data e hora
 codigo:UUID                 # Identificador único
+valor:Long                  # Números inteiros grandes
+custo:Float                 # Números decimais simples
 ```
 
-**Novidades:**
-- ✅ **BigDecimal**: Suporte completo com validações `@DecimalMin` e `@Digits`
-- ✅ **Nome da tabela personalizado**: Solicita nome da tabela após o nome da entidade
-- ✅ **Colunas em maiúsculo**: Todos os nomes de colunas são automaticamente convertidos para maiúsculo
+**Formato:** `nome:tipo[:tamanho][:opcoes]`
+
+**Tipos suportados:**
+- String, Integer, Long, Double, Float, Boolean
+- LocalDateTime, LocalDate, UUID, BigDecimal
+
+**Opções especiais:**
+- `positive`: Adiciona validação `@Positive` para números
+- Para BigDecimal: Adiciona `@DecimalMin` e `@Digits(integer=19, fraction=2)`
 
 ### Configuração de Relacionamentos
+
+**Formato:** `nome:tipo:target[:mapped_by][:opcoes]`
 
 #### OneToMany (Um para Muitos)
 ```
 pedidos:OneToMany:Pedido:cliente:cascade
 ```
-- **pedidos**: nome do campo na entidade
-- **OneToMany**: tipo do relacionamento
-- **Pedido**: entidade relacionada
-- **cliente**: campo na entidade relacionada (mapped by)
-- **cascade**: operações em cascata
 
 #### ManyToOne (Muitos para Um)
 ```
 categoria:ManyToOne:Categoria::not_null
 ```
-- **categoria**: nome do campo
-- **ManyToOne**: tipo do relacionamento
-- **Categoria**: entidade relacionada
-- **not_null**: campo obrigatório
 
 #### OneToOne (Um para Um)
 ```
-endereco:OneToOne:Endereco::cascade,owner
+endereco:OneToOne:Endereco::cascade
 ```
-- **endereco**: nome do campo
-- **OneToOne**: tipo do relacionamento
-- **Endereco**: entidade relacionada
-- **cascade,owner**: operações em cascata e proprietário do relacionamento
 
 #### ManyToMany (Muitos para Muitos)
 ```
-tags:ManyToMany:Tag::cascade,inverse_field=posts
+tags:ManyToMany:Tag::cascade
 ```
-- **tags**: nome do campo
-- **ManyToMany**: tipo do relacionamento
-- **Tag**: entidade relacionada
-- **cascade**: operações em cascata
-- **inverse_field=posts**: campo na entidade relacionada
 
-### Opções Avançadas
+**Opções disponíveis:**
+- `cascade`: Operações em cascata
+- `not_null`: Campo obrigatório (adiciona `@NotNull`)
 
-| Opção | Descrição | Uso |
-|-------|-----------|-----|
-| `cascade` | Operações em cascata | `categoria:ManyToOne:Categoria::cascade` |
-| `not_null` | Campo obrigatório | `categoria:ManyToOne:Categoria::not_null` |
-| `owner` | Proprietário do relacionamento | `endereco:OneToOne:Endereco::owner` |
-| `inverse_field` | Campo inverso em ManyToMany | `tags:ManyToMany:Tag::inverse_field=posts` |
-| `positive` | Validação numérica positiva | `idade:Integer::positive` |
+### Funcionalidades do MapStruct
 
+O gerador agora inclui interfaces MapStruct profissionais:
+
+- **Mapeamento Entity ↔ Request**: Conversão bidirecional automática
+- **Mapeamento Entity → Response**: Com summary objects para relacionamentos
+- **Métodos personalizados**: Para objetos relacionados complexos
+- **Ignoring de relacionamentos**: Para evitar lazy loading issues
+- **Update methods**: Para atualizar entidades existentes a partir de requests
 ## 📁 Estrutura dos Arquivos Gerados
 
 Para uma entidade `Cliente`, o sistema gera:
 
 ```
 output/Cliente/
-├── Cliente.java              # Entidade JPA
+├── Cliente.java              # Entidade JPA com IDs Long e relacionamentos
 ├── ClienteRepository.java    # Interface Repository
-├── ClienteRequest.java       # DTO de entrada
+├── ClienteRequest.java       # DTO de entrada com validações
 ├── ClienteResponse.java      # DTO de saída
-├── ClienteService.java       # Lógica de negócios
-├── ClienteController.java    # Endpoints REST
-├── ClienteServiceTest.java   # Testes do Service
-└── ClienteControllerTest.java # Testes do Controller
+├── ClienteMapper.java        # Interface MapStruct para conversões
+├── ClienteService.java       # Lógica de negócios com MapStruct
+├── ClienteController.java    # Endpoints REST com Swagger
+├── ClienteServiceTest.java   # Testes do Service (Mockito)
+└── ClienteControllerTest.java # Testes do Controller (MockMvc)
 ```
+
+## 🧪 Suite de Testes
+
+O projeto inclui **54 testes unitários** organizados em categorias:
+
+### Estrutura de Testes
+```
+tests/
+├── test_validation.py      # Testes de validação de entrada (10 testes)
+├── test_templates.py       # Testes de geração de templates (13 testes)
+├── test_relationships.py   # Testes de relacionamentos JPA (12 testes)
+├── test_edge_cases.py      # Testes de casos extremos (11 testes)
+├── test_integration.py     # Testes de integração completa (8 testes)
+├── test_base.py           # Classe base para testes
+└── conftest.py            # Configurações do pytest
+```
+
+### Executar Testes
+```bash
+# Instalar pytest
+pip install pytest
+
+# Executar todos os testes
+python -m pytest tests/ -v
+
+# Executar categoria específica
+python -m pytest tests/test_templates.py -v
+```
+
+**Cobertura dos Testes:**
+- ✅ Validação de entrada de campos e relacionamentos
+- ✅ Geração correta de todos os templates
+- ✅ Relacionamentos JPA (OneToMany, ManyToOne, OneToOne, ManyToMany)
+- ✅ Casos extremos e validações especiais
+- ✅ Workflow completo de geração de arquivos
+- ✅ MapStruct integration
+- ✅ Localização em português
 
 ## 🔧 Configuração
 
@@ -147,119 +184,191 @@ TEMPLATE_DIR = "templates"      # Diretório dos templates
 
 ## 💡 Exemplos de Uso
 
+## 💡 Exemplos de Uso
+
 ### Exemplo 1: Entidade Simples
 ```
 📝 Nome da entidade: Produto
-🔧 Campos:
+�️  Nome da tabela: TB_PRODUTOS
+�🔧 Campos:
    nome:String:100
-   preco:Double::positive
+   preco:BigDecimal::positive
    ativo:Boolean
 
 ✅ Sem relacionamentos
 ```
 
-### Exemplo 2: Entidade com BigDecimal e Relacionamentos
-```
-📝 Nome da entidade: Produto
-🗃️  Nome da tabela: TB_PRODUTOS
-🔧 Campos:
-   nome:String:100
-   preco:BigDecimal::positive
-   categoria:String:50
-   ativo:Boolean
-
-🔗 Relacionamentos:
-   fornecedor:ManyToOne:Fornecedor::not_null
-   avaliacoes:OneToMany:Avaliacao:produto:cascade
-```
-
-**Resultado:**
-- Tabela: `TB_PRODUTOS`
-- Colunas: `NOME`, `PRECO`, `CATEGORIA`, `ATIVO`, `FORNECEDOR_ID`
-- BigDecimal com precisão: `@Column(precision=19, scale=2)`
-- Validações: `@DecimalMin`, `@Digits`, `@Positive`
-
-### Exemplo 3: Sistema Completo
+### Exemplo 2: Entidade com Relacionamentos
 ```
 📝 Nome da entidade: Pedido
+🗃️  Nome da tabela: TB_PEDIDOS
 🔧 Campos:
    numero:String:50
-   total:Double::positive
+   total:BigDecimal::positive
    data:LocalDateTime
 
 🔗 Relacionamentos:
    cliente:ManyToOne:Cliente::not_null
    itens:OneToMany:ItemPedido:pedido:cascade
-   tags:ManyToMany:Tag::inverse_field=pedidos
 ```
+
+**Resultado gerado:**
+- **ID Long autoincremental** em todas as entidades
+- **Tabela**: `TB_PEDIDOS` com colunas `NUMERO`, `TOTAL`, `DATA`, `CLIENTE_ID`
+- **MapStruct Mapper** com conversões automáticas
+- **Request DTO** com `UUID clienteId` e `List<UUID> itensIds`
+- **Service** com métodos que usam MapStruct
+- **Validações**: `@NotNull` no relacionamento cliente
+- **Testes completos** para todas as camadas
 
 ## 🎨 Funcionalidades dos Templates
 
 ### Entity (Cliente.java)
-- ✅ Anotações JPA otimizadas
+- ✅ **ID Long** com `@GeneratedValue(strategy = GenerationType.IDENTITY)`
+- ✅ Anotações JPA otimizadas e relacionamentos
 - ✅ Lombok para redução de boilerplate
-- ✅ Relacionamentos com configurações apropriadas
-- ✅ Métodos auxiliares para relacionamentos
-- ✅ Controle de serialização JSON
-- ✅ Timestamps automáticos
+- ✅ Controle de serialização JSON com Jackson
+- ✅ **Colunas em maiúsculo** automaticamente
+
+### Mapper (ClienteMapper.java) - **NOVIDADE MapStruct**
+- ✅ **Interface MapStruct** com `@Mapper(componentModel = "spring")`
+- ✅ Conversões automáticas `Entity ↔ Request`
+- ✅ Conversões `Entity → Response` com summary objects
+- ✅ **Métodos customizados** para relacionamentos complexos
+- ✅ **Ignore de relacionamentos** para evitar lazy loading
 
 ### Request DTO (ClienteRequest.java)
-- ✅ Validações Bean Validation
-- ✅ Record classes para imutabilidade
-- ✅ Campos para IDs de relacionamentos
-
-### Response DTO (ClienteResponse.java)
-- ✅ DTOs aninhados para relacionamentos
-- ✅ Factory methods para conversão
-- ✅ Métodos summary para referências
+- ✅ **Record classes** para imutabilidade
+- ✅ Validações Bean Validation automáticas
+- ✅ **UUID para relacionamentos** (`clienteId`, `itensIds`)
+- ✅ **@NotNull** em relacionamentos obrigatórios
 
 ### Service (ClienteService.java)
-- ✅ Métodos CRUD completos
-- ✅ Conversão automática Request ↔ Entity
-- ✅ Tratamento de relacionamentos
+- ✅ **Injeção automática do Mapper** MapStruct
+- ✅ Métodos CRUD que usam `mapper.toEntity()` e `mapper.toResponse()`
+- ✅ **Processamento de relacionamentos** automático
+- ✅ **Mensagens de erro em português**
 - ✅ Transações otimizadas
 
 ### Controller (ClienteController.java)
-- ✅ Endpoints REST padronizados
-- ✅ Documentação Swagger/OpenAPI
-- ✅ Validações de entrada
-- ✅ Códigos de status HTTP apropriados
+- ✅ **Endpoints REST** com `@PathVariable` Long
+- ✅ **Documentação Swagger/OpenAPI** completa
+- ✅ **Response Status** apropriados (201, 204, etc.)
+- ✅ **Strings em português** (descrições, summaries)
 
 ## 🧪 Testes
 
-Os testes gerados incluem:
+### Testes Gerados
+Os arquivos de teste incluem:
 
-- **ServiceTest**: Testa a lógica de negócios
-- **ControllerTest**: Testa os endpoints REST
-- Mocks apropriados com Mockito
-- Cobertura de casos básicos de CRUD
+- **ServiceTest**: Testa lógica de negócios com Mockito
+- **ControllerTest**: Testa endpoints REST com MockMvc
+- Cobertura de cenários CRUD básicos
+- Mocks apropriados para dependências
 
-## 📝 Melhorias Implementadas
+### Suite de Testes do Projeto
+Execute a suite completa de 54 testes:
 
-### ✅ Relacionamentos JPA
-- Suporte completo aos 4 tipos de relacionamento
-- Configurações avançadas (cascade, fetch, orphanRemoval)
-- Anotações Jackson para controle de serialização
-- Métodos auxiliares para manipulação de relacionamentos
+```bash
+python -m pytest tests/ -v
+```
 
-### ✅ Validações e DTOs
-- Request DTOs com campos para relacionamentos
-- Response DTOs com objetos aninhados
-- Validações Bean Validation automáticas
-- Factory methods para conversões
+## 🆕 Principais Melhorias Implementadas
 
-### ✅ Services Aprimorados
-- Métodos de conversão Request ↔ Entity
-- Tratamento automático de relacionamentos
-- Transações otimizadas
-- Injeção automática de repositórios relacionados
+### ✅ MapStruct Integration
+- **Interfaces MapStruct** profissionais em vez de conversões manuais
+- **Mapeamento automático** entre DTOs e entidades
+- **Métodos customizados** para relacionamentos complexos
+- **Performance otimizada** com geração de código em compile-time
 
-### ✅ Interface de Usuário
-- Prompt interativo melhorado
-- Validação de tipos e formatos
-- Feedback visual com emojis
-- Resumo antes da geração
-- Confirmação de operações
+### ✅ IDs Long Autoincrementais
+- **Todas as entidades** usam `Long id` com `@GeneratedValue`
+- **Path variables** em controllers usam `Long` 
+- **Referências de relacionamento** usam `UUID` nos DTOs
+
+### ✅ Localização Portuguesa Completa
+- **Mensagens de erro** em português
+- **Comentários de código** em português
+- **Documentação Swagger** em português
+- **Strings de interface** em português
+
+### ✅ Relacionamentos Avançados
+- Suporte completo aos 4 tipos de relacionamento JPA
+- **Configurações de cascade** automáticas
+- **Validação @NotNull** para relacionamentos obrigatórios
+- **Summary objects** para evitar problemas de serialização
+
+### ✅ Validações Bean Validation
+- **@NotNull** automático em relacionamentos obrigatórios
+- **@Positive** para campos numéricos positivos
+- **@DecimalMin e @Digits** para BigDecimal
+- **@Size** para campos String com tamanho
+
+### ✅ Interface de Usuário Melhorada
+- **Formato colon-separated** mais eficiente
+- **Validação de entrada** robusta
+- **Feedback visual** com emojis e cores
+- **Resumo antes da geração** com confirmação
+
+## 🔧 Dependências do Projeto Gerado
+
+O código gerado requer as seguintes dependências no `pom.xml`:
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.mapstruct</groupId>
+        <artifactId>mapstruct</artifactId>
+        <version>1.5.5.Final</version>
+    </dependency>
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+    <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        <version>2.2.0</version>
+    </dependency>
+</dependencies>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.11.0</version>
+            <configuration>
+                <annotationProcessorPaths>
+                    <path>
+                        <groupId>org.mapstruct</groupId>
+                        <artifactId>mapstruct-processor</artifactId>
+                        <version>1.5.5.Final</version>
+                    </path>
+                    <path>
+                        <groupId>org.projectlombok</groupId>
+                        <artifactId>lombok</artifactId>
+                        <version>${lombok.version}</version>
+                    </path>
+                </annotationProcessorPaths>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
 
 ## 🤝 Contribuindo
 
